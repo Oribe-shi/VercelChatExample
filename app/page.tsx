@@ -9,6 +9,8 @@ export default function Home() {
     const [userIcon, setUserIcon] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [frameId, setFrameId] = useState<string | null>(null);
+    const [messages, setMessages] = useState<string[]>([]);
+    const [newMessage, setNewMessage] = useState<string>("");
 
     useEffect(() => {
         // DiscordProxy.patch() を最初に呼び出す
@@ -23,9 +25,8 @@ export default function Home() {
             setFrameId(frameIdFromUrl);
 
             if (!frameIdFromUrl) {
-                console.log("frame_id is not present in the URL.");
-            } else {
-                console.log("frame_id:", frameIdFromUrl);
+                window.location.href = "/index.html";
+                return;
             }
 
             const discordSdk = new DiscordSDK(process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!);
@@ -43,8 +44,6 @@ export default function Home() {
                     scope: ["identify"],
                 });
 
-                console.log("ShareMarioMaker - GetUserName");
-
                 // サーバーからアクセストークンを取得
                 const response = await fetch("/api/token", {
                     method: "POST",
@@ -54,10 +53,7 @@ export default function Home() {
                     body: JSON.stringify({ code }),
                 });
 
-                console.log("ShareMarioMaker - GetUserName");
-
                 const text = await response.text(); // レスポンスをテキストとして取得して確認
-                console.log(text); // レスポンスの内容をログに出力
 
                 const { access_token } = JSON.parse(text); // 文字列として受け取ったレスポンスをパース
 
@@ -81,6 +77,11 @@ export default function Home() {
 
                 setUserName(user.global_name || user.username);
                 setUserIcon(user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null);
+
+                // ユーザー情報の取得後にメッセージを取得
+                if (userName) {
+                    fetchMessages(); // ユーザー名が設定された後にメッセージを取得
+                }
             } catch (error) {
                 if (error instanceof Error) {
                     setError(error.message);
@@ -92,7 +93,32 @@ export default function Home() {
         };
 
         initializeDiscordSdk();
-    }, []);
+    }, [userName]);
+
+    const fetchMessages = async () => {
+        const response = await fetch("/api/messages");
+        const data = await response.json();
+        setMessages(data.messages);
+    };
+
+    const sendMessage = async () => {
+        if (newMessage.trim()) {
+            await fetch("/api/sendMessage", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ message: newMessage }),
+            });
+            setNewMessage("");
+            fetchMessages();
+        }
+    };
+
+    const deleteMessage = async (messageId: number) => {
+        await fetch(`/api/deleteMessage/${messageId}`, { method: "DELETE" });
+        fetchMessages();
+    };
 
     return (
         <div style={{ fontFamily: "Arial, sans-serif", textAlign: "center", marginTop: "50px" }}>
@@ -127,6 +153,21 @@ export default function Home() {
                             }}
                         />
                     )}
+                    <div>
+                        {messages.map((msg, index) => (
+                            <div key={index}>
+                                <p>{msg}</p>
+                                <button onClick={() => deleteMessage(index)}>削除</button>
+                            </div>
+                        ))}
+                    </div>
+                    <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="メッセージを入力"
+                    />
+                    <button onClick={sendMessage}>送信</button>
                 </div>
             )}
         </div>
