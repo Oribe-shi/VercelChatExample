@@ -20,7 +20,6 @@ const nextConfig: NextConfig = {
                                 default-src 'self'; 
                                 connect-src 
                                 'self' 
-                                https://share-mario-maker.vercel.app 
                                 https://discord.com/.proxy/api/token
                                 ${discordApiUrl}
                                 wss://${discordClientId}.discordsays.com/.proxy/ 
